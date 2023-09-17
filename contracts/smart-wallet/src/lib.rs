@@ -1,7 +1,7 @@
 #![no_std]
 mod test;
 
-use soroban_sdk::{contract, contractimpl, contracttype, contracterror, Env, Address, Vec, BytesN, token, symbol_short, Symbol };
+use soroban_sdk::{contract, contractimpl, contracttype, contracterror, Env, Address, Vec, BytesN, token, Symbol };
 
 // -------------- VARIABLES -------------- // 
 
@@ -139,6 +139,10 @@ impl Contract {
         e.storage().instance().set(&DataKey::RecoveryTime, &recovery_time_seconds);
 
         e.storage().instance().set(&DataKey::ContractInit, &true);
+
+        let topics = (Symbol::new(&e, "Init"), true);
+        e.events().publish(topics, true);
+
         Ok(())
     }
 
@@ -146,11 +150,11 @@ impl Contract {
 // -------------- RECOVERY PROCESS -------------- // 
 
 // Start the ownership recovery process
-    // Validate the newOwner
-    // Check if a recovery is already in progress
-    // Start the recovery and set the recovery_in_prog flag
-    // Set the new owner's address for this recovery attempt
-    // Set the recovery start time
+// - Validate the newOwner
+// - Check if a recovery is already in progress
+// - Start the recovery and set the recovery_in_prog flag
+// - Set the new owner's address for this recovery attempt
+// - Set the recovery start time
 
     pub fn recover(
         e: Env, 
@@ -170,13 +174,17 @@ impl Contract {
             State::CompletedAndReset => {},
         }
 
+        let recovery_end_time = get_timestamp(&e) + e.storage().instance().get::<DataKey, u64>(&DataKey::RecoveryTime).unwrap();
+
         e.storage().instance().set(&DataKey::Recovery, &Recovery {
             new_owner_address : new_owner,
             signature_count: 0,
             signatures_list: Vec::from_array(&e, []),
-            recovery_end_time: get_timestamp(&e) + e.storage().instance().get::<DataKey, u64>(&DataKey::RecoveryTime).unwrap(),
+            recovery_end_time: recovery_end_time,
         });
 
+        let topics = (Symbol::new(&e, "Recovery"), recovery_end_time);
+        e.events().publish(topics, recovery_end_time);
         Ok(())
     }
 
@@ -212,6 +220,9 @@ impl Contract {
         recovery.signature_count += 1;
 
         e.storage().instance().set(&DataKey::Recovery, &recovery);
+
+        let topics = (Symbol::new(&e, "Signed"), recovery.signature_count);
+        e.events().publish(topics, recovery.signature_count);
     
         Ok(())
     }
@@ -231,8 +242,13 @@ impl Contract {
 
         token::Client::new(&e, &token).transfer(&from, &e.current_contract_address(), &amount);
 
-        e.storage().instance().set(&DataKey::Balance, &(get_balance(&e) + amount));
+        let balance = get_balance(&e);
 
+        e.storage().instance().set(&DataKey::Balance, &(balance + amount));
+
+        let topics = (Symbol::new(&e, "Deposit"), amount, balance);
+        e.events().publish(topics, (amount, balance));
+        
         Ok(())
     }
 
@@ -263,7 +279,8 @@ impl Contract {
 
         e.storage().instance().set(&DataKey::Balance,  &(balance - amount)); 
 
-        let topics = (Symbol::new(&e, "balance"), balance, after);
+        let topics = (Symbol::new(&e, "Withdrawal"), amount, balance);
+        e.events().publish(topics, (amount, balance));
 
         Ok(())
     }
