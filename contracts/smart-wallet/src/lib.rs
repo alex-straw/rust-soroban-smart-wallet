@@ -33,51 +33,6 @@ pub enum State {
     CompletedAndReset,
 }
 
-fn recovery_state(e: &Env) -> State {
-
-    if !initialised(e) {
-        panic!("Contract has not been initalised");
-    }
-
-    let cur_time = e.ledger().timestamp();
-    let recovery: Recovery = e.storage().instance().get(&DataKey::Recovery).unwrap();
-
-    if recovery.recovery_end_time == 0 {
-        State::NotInProgress
-    } else if cur_time < recovery.recovery_end_time {
-        State::InProgress
-    } else {
-        if recovery.signature_count >= e.storage().instance().get(&DataKey::RecoveryThreshold).unwrap() {
-            e.storage().instance().set(&DataKey::OwnerAddress, &recovery.new_owner_address)
-        }
-        e.storage().instance().set(&DataKey::Recovery, &Recovery {
-            new_owner_address : Address::from_contract_id(&BytesN::from_array(e, &[1u8; 32])),
-            signature_count: 0,
-            signatures_list: Vec::from_array(e, []),
-            recovery_end_time: 0,
-        }); 
-        State::CompletedAndReset
-    }
-}
-
-fn initialised(e: &Env) -> bool {
-    return e.storage().instance().get::<DataKey, bool>(&DataKey::ContractInit).unwrap_or(false);
-}
-
-// -------------- UTILITY FUNCTIONS --------------
-
-pub fn get_owner(e: &Env) -> Address{
-    e.storage().instance().get(&DataKey::OwnerAddress).unwrap()
-}
-
-pub fn get_timestamp(e: &Env) -> u64 {
-    e.ledger().timestamp()
-}
-
-pub fn get_balance(e: &Env) -> i128 {
-    e.storage().instance().get(&DataKey::Balance).unwrap_or(0)
-}
-
 // -------------- ERRORS -------------- // 
 
 #[contracterror]
@@ -151,7 +106,7 @@ impl Contract {
         e: Env, 
         new_owner: Address
     ) -> Result<(), Error> {
-        if !initialised(&e) {
+        if !Self::initialised(&e) {
             return Err(Error::NotInitalised)
         }
 
@@ -159,13 +114,13 @@ impl Contract {
             return Err(Error::InvalidNewOwnerAddress);
         }
 
-        match recovery_state(&e) {
+        match Self::recovery_state(&e) {
             State::NotInProgress => {},
             State::InProgress => { return Err(Error::RecoveryInProgress) },
             State::CompletedAndReset => {},
         }
 
-        let recovery_end_time = get_timestamp(&e) + e.storage().instance().get::<DataKey, u64>(&DataKey::RecoveryTime).unwrap();
+        let recovery_end_time = e.storage().instance().get::<DataKey, u64>(&DataKey::RecoveryTime).unwrap() + e.ledger().timestamp();
 
         e.storage().instance().set(&DataKey::Recovery, &Recovery {
             new_owner_address : new_owner,
@@ -185,7 +140,8 @@ impl Contract {
         e: Env, 
         signer: Address
     ) -> Result<(), Error> {
-        if !initialised(&e) {
+        
+        if !Self::initialised(&e) {
             return Err(Error::NotInitalised)
         }
 
@@ -195,7 +151,7 @@ impl Contract {
             return Err(Error::InvalidRecoveryAddress)
         }
 
-        match recovery_state(&e) {
+        match Self::recovery_state(&e) {
             State::NotInProgress => { return Err(Error::RecoveryNotInProgress) },
             State::InProgress => {},
             State::CompletedAndReset => { return Err(Error::RecoveryNotInProgress)},
@@ -226,14 +182,16 @@ impl Contract {
         token: Address,
         amount: i128
     ) -> Result<(), Error> {
-        if !initialised(&e) {
+
+        if !Self::initialised(&e) {
             return Err(Error::NotInitalised)
         }
+
         from.require_auth();
 
         token::Client::new(&e, &token).transfer(&from, &e.current_contract_address(), &amount);
 
-        let balance = get_balance(&e);
+        let balance = Self::get_balance(&e);
 
         e.storage().instance().set(&DataKey::Balance, &(balance + amount));
 
@@ -248,15 +206,16 @@ impl Contract {
         token: Address,
         amount: i128
     ) -> Result<(), Error>  {
-        if !initialised(&e) {
+
+        if !Self::initialised(&e) {
             return Err(Error::NotInitalised)
         }
 
-        let owner = get_owner(&e);
+        let owner = Self::get_owner(&e);
 
         owner.require_auth();
 
-        let balance = get_balance(&e);
+        let balance = Self::get_balance(&e);
 
         if balance < amount {
             return Err(Error::InsufficientFunds);
@@ -274,5 +233,46 @@ impl Contract {
         e.events().publish(topics, (amount, balance));
 
         Ok(())
+    }
+
+    fn recovery_state(e: &Env) -> State {
+
+        if !Self::initialised(e) {
+            panic!("Contract has not been initalised");
+        }
+    
+        let cur_time = e.ledger().timestamp();
+        let recovery: Recovery = e.storage().instance().get(&DataKey::Recovery).unwrap();
+    
+        if recovery.recovery_end_time == 0 {
+            State::NotInProgress
+        } else if cur_time < recovery.recovery_end_time {
+            State::InProgress
+        } else {
+            if recovery.signature_count >= e.storage().instance().get(&DataKey::RecoveryThreshold).unwrap() {
+                e.storage().instance().set(&DataKey::OwnerAddress, &recovery.new_owner_address)
+            }
+            e.storage().instance().set(&DataKey::Recovery, &Recovery {
+                new_owner_address : Address::from_contract_id(&BytesN::from_array(e, &[1u8; 32])),
+                signature_count: 0,
+                signatures_list: Vec::from_array(e, []),
+                recovery_end_time: 0,
+            }); 
+            State::CompletedAndReset
+        }
+    }
+    
+    fn initialised(e: &Env) -> bool {
+        return e.storage().instance().get::<DataKey, bool>(&DataKey::ContractInit).unwrap_or(false);
+    }
+    
+    // -------------- UTILITY FUNCTIONS --------------
+
+    fn get_owner(e: &Env) -> Address{
+        e.storage().instance().get(&DataKey::OwnerAddress).unwrap()
+    }
+    
+    fn get_balance(e: &Env) -> i128 {
+        e.storage().instance().get(&DataKey::Balance).unwrap_or(0)
     }
 }
