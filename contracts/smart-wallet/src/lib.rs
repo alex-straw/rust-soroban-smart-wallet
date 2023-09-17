@@ -94,19 +94,17 @@ pub enum Error {
     InsufficientFunds = 8,
 }
 
+// -------------- Contract -------------- // 
+
 #[contract]
 pub struct Contract;
 
 #[contractimpl]
 impl Contract {
 
-// -------------- INITIALISATION -------------- // 
+    // -------------- INITIALISATION -------------- // 
 
-// Sets up the initial state of the recovery wallet
-    // Set the owner address
-    // Set the recovery addresses and validate them
-    // Set the recovery threshold and validate it
-    // Set the recovery time and validate it
+    // Sets up the initial state of the recovery wallet
 
     pub fn init(
         e: Env, 
@@ -147,14 +145,7 @@ impl Contract {
     }
 
 
-// -------------- RECOVERY PROCESS -------------- // 
-
-// Start the ownership recovery process
-// - Validate the newOwner
-// - Check if a recovery is already in progress
-// - Start the recovery and set the recovery_in_prog flag
-// - Set the new owner's address for this recovery attempt
-// - Set the recovery start time
+    // -------------- RECOVERY PROCESS -------------- // 
 
     pub fn recover(
         e: Env, 
@@ -188,7 +179,7 @@ impl Contract {
         Ok(())
     }
 
-    // -------------- SIGN RECOVERY -------------- // 
+    // -------------- SIGN -------------- // 
 
     pub fn sign(
         e: Env, 
@@ -285,19 +276,3 @@ impl Contract {
         Ok(())
     }
 }
-
-// -------------- EVENTS --------------
-
-// Triggered when ownership is successfully changed
-//      Event OwnershipChanged(old_owner: Address, new_owner: Address)
-
-// env.events().publish((COUNTER, symbol_short!("increment")), count);
-
-// Triggered when a recovery process is started
-//      Event RecoveryStarted(requester: Address, timestamp: Timestamp)
-
-// Triggered when an address signs for recovery
-//      Event Signed(signer: Address)
-
-// Triggered when a recovery process is canceled
-//      Event RecoveryCancelled()
