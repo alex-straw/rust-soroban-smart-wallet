@@ -1,11 +1,19 @@
-[workspace]
-resolver = "2"
-members = [
-  "contracts/*",
-]
+[package]
+name = "recovery-wallet"
+version = "0.1.0"
+edition = "2021"
 
-[workspace.dependencies]
+[lib]
+crate-type = ["cdylib"]
+
+[features]
+testutils = ["soroban-sdk/testutils"]
+
+[dependencies]
 soroban-sdk = "0.9.2"
+
+[dev_dependencies]
+soroban-sdk = { version = "0.9.2", features = ["testutils"] }
 
 [profile.release]
 opt-level = "z"

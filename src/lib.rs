@@ -52,10 +52,10 @@ pub enum Error {
 // -------------- Contract -------------- // 
 
 #[contract]
-pub struct Contract;
+pub struct RecoveryWalletContract;
 
 #[contractimpl]
-impl Contract {
+impl RecoveryWalletContract {
 
     // -------------- INITIALISATION -------------- // 
 
@@ -187,11 +187,9 @@ impl Contract {
             return Err(Error::NotInitalised)
         }
 
-        from.require_auth();
-
         token::Client::new(&e, &token).transfer(&from, &e.current_contract_address(), &amount);
 
-        let balance = Self::get_balance(&e);
+        let balance = e.storage().instance().get(&DataKey::Balance).unwrap_or(0);
 
         e.storage().instance().set(&DataKey::Balance, &(balance + amount));
 
@@ -211,11 +209,11 @@ impl Contract {
             return Err(Error::NotInitalised)
         }
 
-        let owner = Self::get_owner(&e);
+        let owner: Address = e.storage().instance().get(&DataKey::OwnerAddress).unwrap();
 
         owner.require_auth();
 
-        let balance = Self::get_balance(&e);
+        let balance = e.storage().instance().get(&DataKey::Balance).unwrap_or(0);
 
         if balance < amount {
             return Err(Error::InsufficientFunds);
@@ -268,11 +266,11 @@ impl Contract {
     
     // -------------- UTILITY FUNCTIONS --------------
 
-    fn get_owner(e: &Env) -> Address{
+    pub fn get_owner(e: Env) -> Address{
         e.storage().instance().get(&DataKey::OwnerAddress).unwrap()
     }
     
-    fn get_balance(e: &Env) -> i128 {
+    pub fn get_balance(e: Env) -> i128 {
         e.storage().instance().get(&DataKey::Balance).unwrap_or(0)
     }
 }
