@@ -4,10 +4,14 @@ A Rust smart contract recovery wallet built using Soroban (for smart contracts o
 ## Key Components:
 
 RecoveryWalletContract: The primary contract.
-init: Initialises the wallet with the initial owner, recovery addresses, and other parameters.
-recover: Initiates a recovery process to set a new owner.
-sign: Used by recovery addresses to sign off on a recovery process.
-deposit and withdraw: Transaction functions to deposit and withdraw funds.
+
+1. init: Initialises the wallet with the initial owner, recovery addresses, and other parameters.
+
+2. recover: Initiates a recovery process to set a new owner.
+
+3. sign: Used by recovery addresses to sign off on a recovery process.
+
+4. deposit and withdraw: Transaction functions to deposit and withdraw funds.
 
 ## Important Notes:
 
