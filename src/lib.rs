@@ -106,8 +106,9 @@ impl RecoveryWalletContract {
         e: Env, 
         new_owner: Address
     ) -> Result<(), Error> {
+        
         if !Self::initialised(&e) {
-            return Err(Error::NotInitalised)
+            return Err(Error::NotInitalised);
         }
 
         if e.storage().instance().get::<DataKey, Address>(&DataKey::OwnerAddress).unwrap() == new_owner || e.storage().instance().has(&new_owner) {
@@ -115,8 +116,8 @@ impl RecoveryWalletContract {
         }
 
         match Self::recovery_state(&e) {
-            State::NotInProgress => {},
-            State::InProgress => { return Err(Error::RecoveryInProgress) },
+            State::NotInProgress =>{},
+            State::InProgress => { return Err(Error::RecoveryInProgress); },
             State::CompletedAndReset => {},
         }
 

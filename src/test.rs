@@ -1,10 +1,12 @@
 #![cfg(test)]
 
-use super::*;
-use soroban_sdk::testutils::{Address as _, AuthorizedFunction, AuthorizedInvocation, Ledger};
-use soroban_sdk::{symbol_short, token, vec, Address, Env, IntoVal};
+use soroban_sdk::testutils::Ledger;
+pub(crate) use super::*;
+use soroban_sdk::testutils::Address as _;
+use soroban_sdk::{token, vec, Address, Env };
 use token::AdminClient as TokenAdminClient;
 use token::Client as TokenClient;
+extern crate std;
 
 use crate::{RecoveryWalletContract, RecoveryWalletContractClient };
 
@@ -82,28 +84,12 @@ fn create_recovery_wallet_contract<'a>(e: &Env) -> RecoveryWalletContractClient<
 fn test() {
     let test: RecoveryWalletTest<'_> = RecoveryWalletTest::setup();
 
-    // token_admin_client.mint(&owner, &1000);
-    // token_admin_client.mint(&random_unpermissioned_address, &1000);
+    test.contract.deposit(
+        &test.owner_address,
+        &test.token.address,
+        &200,
+    );
 
-    // client.deposit(&owner, &token.address, &100);
-    // client.deposit(&random_unpermissioned_address, &token.address, &100);
-
-    // std::println!("\nOwner: {:?}. Contract Owner: {:?}", &owner, &contract_owner);
-
-    // assert_eq!(owner, contract_owner);
-
-    // client.change_owner(&owner2);
-    // let contract_owner2 = client.get_owner();
-    // std::println!("\nOwner2: {:?}. Contract Owner: {:?}", &owner2, &contract_owner2);
-
-    // assert_eq!(owner2, contract_owner2);
-
-    // let expected_recovery_address_count = recovery_addresses.len();
-    // let contract_recovery_address_count = client.get_recovery_address_cnt();
-    // assert_eq!(expected_recovery_address_count, contract_recovery_address_count);
-    // std::println!("\nexpected_recovery_address_count: {:?}. contract_recovery_address_count Owner: {:?}", &expected_recovery_address_count, &contract_recovery_address_count);
-
-    // let ledger_timestamp = client.get_ledger_timestamp();
-    // std::println!("\ncurrent ledger timestamp: {:?}.", &ledger_timestamp);
-    
+    assert_eq!(test.contract.try_recover(&test.owner_address), Err(Ok(Error::InvalidNewOwnerAddress)));
+    assert_ne!(test.contract.try_recover(&test.new_owner), Err(Ok(Error::InvalidNewOwnerAddress)));
 }
