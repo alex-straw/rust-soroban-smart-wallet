@@ -1,2 +1,6 @@
 target
 .soroban
+
+Cargo.lock
+*launch.json
+target
