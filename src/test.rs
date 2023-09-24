@@ -101,6 +101,20 @@ fn test_successsful_recovery() {
     assert_eq!(test.contract.try_recover(&test.recovery_addresses.get(0).unwrap()), Err(Ok(Error::InvalidNewOwnerAddress)));
 
     assert_eq!(test.contract.try_recover(&test.new_owner), Ok(Ok(())));
+
+    test.e.ledger().with_mut(|li| {
+        li.timestamp = 2000;
+    });
+
+    assert_eq!(test.contract.try_recover(&Address::random(&test.e)), Err(Ok(Error::RecoveryInProgress)));
+
+    test.e.ledger().with_mut(|li| {
+        li.timestamp += test.recovery_time_seconds * 2;
+    });
+    
+    assert_eq!(test.contract.try_recover(&Address::random(&test.e)), Ok(Ok(())));
+
+    std::println!("\nLedger Time: {}", test.contract.get_ledger_time());
 }
 
 #[test]
@@ -122,6 +136,7 @@ fn test_recovery_in_progress() {
 
     // Call recover again, which should throw since a recovery is already in progress
     assert_eq!(test.contract.try_recover(&new_new_owner), Err(Ok(Error::RecoveryInProgress)));
+
     std::println!("\nLedger Time: {}", test.contract.get_ledger_time());
 
     let recovery = test.contract.get_recovery();

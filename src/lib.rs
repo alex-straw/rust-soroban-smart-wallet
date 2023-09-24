@@ -89,6 +89,8 @@ impl RecoveryWalletContract {
             return Err(Error::InvalidRecoveryThreshold)
         }
 
+        e.storage().instance().set(&DataKey::RecoveryThreshold, &recovery_threshold);
+
         e.storage().instance().set(&DataKey::RecoveryTime, &recovery_time_seconds);
 
         e.storage().instance().set(&DataKey::ContractInit, &true);
