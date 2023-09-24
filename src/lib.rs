@@ -66,7 +66,7 @@ impl RecoveryWalletContract {
         owner: Address, 
         recovery_addresses: Vec<Address>,
         recovery_threshold: u32,
-        recovery_time_seconds: u32,
+        recovery_time_seconds: u64,
     ) -> Result<(), Error> {
         
         e.storage().instance().set(&DataKey::OwnerAddress, &owner);
@@ -93,6 +93,13 @@ impl RecoveryWalletContract {
 
         e.storage().instance().set(&DataKey::ContractInit, &true);
 
+        e.storage().instance().set(&DataKey::Recovery, &Recovery {
+            new_owner_address: owner,
+            signature_count: 0,
+            signatures_list: Vec::from_array(&e, []),
+            recovery_end_time: 0,
+        });
+
         let topics = (Symbol::new(&e, "Init"), true);
         e.events().publish(topics, true);
 
@@ -106,17 +113,21 @@ impl RecoveryWalletContract {
         e: Env, 
         new_owner: Address
     ) -> Result<(), Error> {
-        
+
         if !Self::initialised(&e) {
             return Err(Error::NotInitalised);
         }
 
-        if e.storage().instance().get::<DataKey, Address>(&DataKey::OwnerAddress).unwrap() == new_owner || e.storage().instance().has(&new_owner) {
+        if e.storage().instance().get::<DataKey, Address>(&DataKey::OwnerAddress).unwrap() == new_owner {
+            return Err(Error::InvalidNewOwnerAddress);
+        }
+
+        if e.storage().instance().has(&DataKey::RecoveryAddress(new_owner.clone())) {
             return Err(Error::InvalidNewOwnerAddress);
         }
 
         match Self::recovery_state(&e) {
-            State::NotInProgress =>{},
+            State::NotInProgress => {},
             State::InProgress => { return Err(Error::RecoveryInProgress); },
             State::CompletedAndReset => {},
         }
@@ -132,6 +143,7 @@ impl RecoveryWalletContract {
 
         let topics = (Symbol::new(&e, "Recovery"), recovery_end_time);
         e.events().publish(topics, recovery_end_time);
+        
         Ok(())
     }
 
@@ -241,6 +253,7 @@ impl RecoveryWalletContract {
         }
     
         let cur_time = e.ledger().timestamp();
+
         let recovery: Recovery = e.storage().instance().get(&DataKey::Recovery).unwrap();
     
         if recovery.recovery_end_time == 0 {
@@ -252,7 +265,7 @@ impl RecoveryWalletContract {
                 e.storage().instance().set(&DataKey::OwnerAddress, &recovery.new_owner_address)
             }
             e.storage().instance().set(&DataKey::Recovery, &Recovery {
-                new_owner_address : Address::from_contract_id(&BytesN::from_array(e, &[1u8; 32])),
+                new_owner_address: Address::from_contract_id(&BytesN::from_array(e, &[1u8; 32])),
                 signature_count: 0,
                 signatures_list: Vec::from_array(e, []),
                 recovery_end_time: 0,
@@ -273,5 +286,17 @@ impl RecoveryWalletContract {
     
     pub fn get_balance(e: Env) -> i128 {
         e.storage().instance().get(&DataKey::Balance).unwrap_or(0)
+    }
+
+    pub fn get_ledger_time(e: Env) -> u64 {
+        e.ledger().timestamp()
+    }
+
+    pub fn get_recovery(e: Env) -> Recovery {
+        if !Self::initialised(&e) {
+            panic!("Contract has not been initalised");
+        }
+
+        e.storage().instance().get(&DataKey::Recovery).unwrap()
     }
 }
