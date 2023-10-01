@@ -4,11 +4,11 @@ use soroban_sdk::testutils::Ledger;
 pub(crate) use super::*;
 use token::Client as TokenClient;
 extern crate std;
-use crate::{token};
+use crate::token;
 use token::StellarAssetClient  as StellarAssetClient;
 use soroban_sdk::{
-    testutils::{Address as _, AuthorizedFunction, AuthorizedInvocation},
-    Address, Env, IntoVal, Symbol, vec
+    testutils::Address as _,
+    Address, Env, vec
 };
 
 
@@ -157,6 +157,53 @@ fn test_recovery_with_signatures_explicit_recovery() {
     assert_eq!(test.contract.try_sign(&test.recovery_addresses.get(1).unwrap()), Ok(Ok(())));
 
     // Explicit recovery now that we need know the signature threshold has been reached
+    assert_eq!(test.contract.get_recovery().signature_count, 2);
+    assert_eq!(test.contract.recovery_state(), State::CompletedAndReset);
+
+    assert_eq!(test.contract.get_recovery().signature_count, 0);
+    assert_eq!(test.contract.recovery_state(), State::NotInProgress);
+}
+
+#[test]
+fn test_recovery_signing_when_threshold_already_reached() {
+    let test: RecoveryWalletTest<'_> = RecoveryWalletTest::setup(true);
+
+    test.contract.deposit(
+        &test.owner_address,
+        &test.token.address,
+        &200,
+    );
+
+    // If the new owner is the existing owner or one of the recovery addresses then it should return the correct error 
+    assert_eq!(test.contract.try_recover(&test.owner_address), Err(Ok(Error::InvalidNewOwnerAddress)));
+    assert_eq!(test.contract.try_recover(&test.recovery_addresses.get(0).unwrap()), Err(Ok(Error::InvalidNewOwnerAddress)));
+
+    assert_eq!(test.contract.recovery_state(), State::NotInProgress);
+
+    assert_eq!(test.contract.try_recover(&test.new_owner), Ok(Ok(())));
+
+    // Increase the ledger time to the mid point of the recovery
+    test.e.ledger().with_mut(|li| {
+        li.timestamp += test.recovery_time_seconds / 2;
+    });
+
+    assert_eq!(test.contract.try_sign(&Address::random(&test.e)), Err(Ok(Error::InvalidRecoveryAddress)));
+
+    assert_eq!(test.contract.recovery_state(), State::InProgress);
+
+    assert_eq!(test.contract.try_sign(&test.recovery_addresses.get(0).unwrap()), Ok(Ok(())));
+    assert_eq!(test.contract.try_sign(&test.recovery_addresses.get(0).unwrap()), Err(Ok(Error::AlreadySigned)));
+
+    assert_eq!(test.contract.recovery_state(), State::InProgress);
+    assert_eq!(test.contract.get_recovery().signature_count, 1);
+
+    assert_eq!(test.contract.try_sign(&test.recovery_addresses.get(1).unwrap()), Ok(Ok(())));
+
+    // Calling sign now that we need know the signature threshold has been reached
+
+    assert_eq!(test.contract.get_recovery().signature_count, 2);
+    assert_eq!(test.contract.try_sign(&test.recovery_addresses.get(2).unwrap()),  Err(Ok(Error::SignatureThresholdAlreadyReached)));
+
     assert_eq!(test.contract.get_recovery().signature_count, 2);
     assert_eq!(test.contract.recovery_state(), State::CompletedAndReset);
 
