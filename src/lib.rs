@@ -27,6 +27,8 @@ pub struct Recovery {
     pub recovery_end_time: u64,
 }
 
+#[contracttype]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub enum State {
     NotInProgress,
     InProgress,
@@ -47,6 +49,7 @@ pub enum Error {
     AlreadySigned = 6,
     RecoveryInProgress = 7,
     InsufficientFunds = 8,
+    SignatureThresholdAlreadyReached = 9,
 }
 
 // -------------- Contract -------------- // 
@@ -128,10 +131,10 @@ impl RecoveryWalletContract {
             return Err(Error::InvalidNewOwnerAddress);
         }
 
-        match Self::recovery_state(&e) {
+        match Self::recovery_state(e.clone()) {
             State::NotInProgress => {},
             State::InProgress => { return Err(Error::RecoveryInProgress); },
-            State::CompletedAndReset => {},
+            State::CompletedAndReset => {}
         }
 
         let recovery_end_time = e.storage().instance().get::<DataKey, u64>(&DataKey::RecoveryTime).unwrap() + e.ledger().timestamp();
@@ -162,14 +165,14 @@ impl RecoveryWalletContract {
 
         signer.require_auth();
 
-        if e.storage().instance().has(&DataKey::RecoveryAddress(signer.clone())) {
+        if !e.storage().instance().has(&DataKey::RecoveryAddress(signer.clone())) {
             return Err(Error::InvalidRecoveryAddress)
         }
 
-        match Self::recovery_state(&e) {
+        match Self::recovery_state(e.clone()) {
             State::NotInProgress => { return Err(Error::RecoveryNotInProgress) },
             State::InProgress => {},
-            State::CompletedAndReset => { return Err(Error::RecoveryNotInProgress)},
+            State::CompletedAndReset => { return Err(Error::SignatureThresholdAlreadyReached) },
         }
 
         let mut recovery: Recovery = e.storage().instance().get(&DataKey::Recovery).unwrap();
@@ -248,28 +251,34 @@ impl RecoveryWalletContract {
         Ok(())
     }
 
-    fn recovery_state(e: &Env) -> State {
+    pub fn recovery_state(e: Env) -> State {
 
-        if !Self::initialised(e) {
-            panic!("Contract has not been initalised");
+        if !Self::initialised(&e) {
+            panic!("Not initialised");
         }
     
         let cur_time = e.ledger().timestamp();
 
         let recovery: Recovery = e.storage().instance().get(&DataKey::Recovery).unwrap();
     
+        let sig_count = recovery.signature_count;
+        let recovery_threshold : u32 = e.storage().instance().get(&DataKey::RecoveryThreshold).unwrap();
+
+        let recovery_threshold_met = sig_count >= recovery_threshold;        
+        // let recovery_threshold_met = recovery.signature_count >= e.storage().instance().get(&DataKey::RecoveryThreshold).unwrap();
+        
         if recovery.recovery_end_time == 0 {
             State::NotInProgress
-        } else if cur_time < recovery.recovery_end_time {
+        } else if !recovery_threshold_met && cur_time < recovery.recovery_end_time {
             State::InProgress
         } else {
-            if recovery.signature_count >= e.storage().instance().get(&DataKey::RecoveryThreshold).unwrap() {
+            if recovery_threshold_met {
                 e.storage().instance().set(&DataKey::OwnerAddress, &recovery.new_owner_address)
             }
             e.storage().instance().set(&DataKey::Recovery, &Recovery {
-                new_owner_address: Address::from_contract_id(&BytesN::from_array(e, &[1u8; 32])),
+                new_owner_address: Address::from_contract_id(&BytesN::from_array(&e, &[1u8; 32])),
                 signature_count: 0,
-                signatures_list: Vec::from_array(e, []),
+                signatures_list: Vec::from_array(&e, []),
                 recovery_end_time: 0,
             }); 
             State::CompletedAndReset

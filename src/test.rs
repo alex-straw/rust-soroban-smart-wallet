@@ -87,7 +87,7 @@ fn create_recovery_wallet_contract<'a>(e: &Env) -> RecoveryWalletContractClient<
 }
 
 #[test]
-fn test_successsful_recovery() {
+fn test_recovery_with_no_signatures() {
     let test: RecoveryWalletTest<'_> = RecoveryWalletTest::setup(true);
 
     test.contract.deposit(
@@ -96,26 +96,74 @@ fn test_successsful_recovery() {
         &200,
     );
 
-    // If the new owner is a) the existing owner or b) one of the recovery addresses then it should throw 
+    // If the new owner is the existing owner or one of the recovery addresses then it should return the correct error 
     assert_eq!(test.contract.try_recover(&test.owner_address), Err(Ok(Error::InvalidNewOwnerAddress)));
     assert_eq!(test.contract.try_recover(&test.recovery_addresses.get(0).unwrap()), Err(Ok(Error::InvalidNewOwnerAddress)));
 
     assert_eq!(test.contract.try_recover(&test.new_owner), Ok(Ok(())));
 
+    // Increase the ledger time to the mid point of the recovery
     test.e.ledger().with_mut(|li| {
-        li.timestamp = 2000;
+        li.timestamp += test.recovery_time_seconds / 2;
     });
 
     assert_eq!(test.contract.try_recover(&Address::random(&test.e)), Err(Ok(Error::RecoveryInProgress)));
 
+    // Increase the ledger time past the user defined length of time that a recovery should take place
     test.e.ledger().with_mut(|li| {
         li.timestamp += test.recovery_time_seconds * 2;
     });
     
+    // Once an existing recovery process has finished, calling this function again should succeed
     assert_eq!(test.contract.try_recover(&Address::random(&test.e)), Ok(Ok(())));
 
     std::println!("\nLedger Time: {}", test.contract.get_ledger_time());
 }
+
+
+#[test]
+fn test_recovery_with_signatures_explicit_recovery() {
+    let test: RecoveryWalletTest<'_> = RecoveryWalletTest::setup(true);
+
+    test.contract.deposit(
+        &test.owner_address,
+        &test.token.address,
+        &200,
+    );
+
+    // If the new owner is the existing owner or one of the recovery addresses then it should return the correct error 
+    assert_eq!(test.contract.try_recover(&test.owner_address), Err(Ok(Error::InvalidNewOwnerAddress)));
+    assert_eq!(test.contract.try_recover(&test.recovery_addresses.get(0).unwrap()), Err(Ok(Error::InvalidNewOwnerAddress)));
+
+    assert_eq!(test.contract.recovery_state(), State::NotInProgress);
+
+    assert_eq!(test.contract.try_recover(&test.new_owner), Ok(Ok(())));
+
+    // Increase the ledger time to the mid point of the recovery
+    test.e.ledger().with_mut(|li| {
+        li.timestamp += test.recovery_time_seconds / 2;
+    });
+
+    assert_eq!(test.contract.try_sign(&Address::random(&test.e)), Err(Ok(Error::InvalidRecoveryAddress)));
+
+    assert_eq!(test.contract.recovery_state(), State::InProgress);
+
+    assert_eq!(test.contract.try_sign(&test.recovery_addresses.get(0).unwrap()), Ok(Ok(())));
+    assert_eq!(test.contract.try_sign(&test.recovery_addresses.get(0).unwrap()), Err(Ok(Error::AlreadySigned)));
+
+    assert_eq!(test.contract.recovery_state(), State::InProgress);
+    assert_eq!(test.contract.get_recovery().signature_count, 1);
+
+    assert_eq!(test.contract.try_sign(&test.recovery_addresses.get(1).unwrap()), Ok(Ok(())));
+
+    // Explicit recovery now that we need know the signature threshold has been reached
+    assert_eq!(test.contract.get_recovery().signature_count, 2);
+    assert_eq!(test.contract.recovery_state(), State::CompletedAndReset);
+
+    assert_eq!(test.contract.get_recovery().signature_count, 0);
+    assert_eq!(test.contract.recovery_state(), State::NotInProgress);
+}
+
 
 #[test]
 fn test_not_initialised() {
