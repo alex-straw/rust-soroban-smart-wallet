@@ -23,6 +23,7 @@ struct RecoveryWalletTest<'a> {
     new_owner: Address,
     token: TokenClient<'a>,
     contract: RecoveryWalletContractClient<'a>,
+    token_admin_client: StellarAssetClient<'a>
 }
 
 impl<'a> RecoveryWalletTest<'a> {
@@ -70,6 +71,7 @@ impl<'a> RecoveryWalletTest<'a> {
             new_owner,
             token,
             contract,
+            token_admin_client
         }
     }
 }
@@ -237,4 +239,34 @@ fn test_recovery_in_progress() {
     let recovery = test.contract.get_recovery();
 
     std::println!("\nRecovery Time: {}", recovery.recovery_end_time);
+}
+
+#[test]
+fn test_deposit_and_withdraw_owner() {
+    let test: RecoveryWalletTest<'_> = RecoveryWalletTest::setup(true);
+
+    let deposit_amount: i128 = 200;
+
+    // Anyone can deposit
+
+    assert_eq!(test.contract.try_deposit(
+        &test.new_owner,
+        &test.token.address,
+        &deposit_amount,
+    ), Ok(Ok(())));
+
+    let balance_after_deposit = test.contract.get_balance();
+    assert_eq!(balance_after_deposit, deposit_amount);
+
+    let withdraw_amount: i128 = 100;
+
+    // Owner can withdraw
+    assert_eq!(test.contract.try_withdraw(
+        &test.token.address,
+        &withdraw_amount
+    ), Ok(Ok(())));
+
+    let balance_after_withdrawal = test.contract.get_balance();
+
+    assert_eq!(balance_after_withdrawal, deposit_amount - withdraw_amount);
 }
