@@ -22,6 +22,12 @@ Events are published for significant operations like initialisation, recovery in
 
 ## Deploy to Futurenet
 
-```soroban contract build```
+```
+soroban contract build
+```
 
 Follow the steps here `https://soroban.stellar.org/docs/getting-started/deploy-to-testnet`
+
+```
+soroban contract deploy   --wasm target/wasm32-unknown-unknown/release/recovery_wallet.wasm   --source <configured-identity-name>   --network testnet
+```
