@@ -1,7 +1,7 @@
 #![no_std]
 mod test;
 
-use soroban_sdk::{contract, contractimpl, contracttype, contracterror, Env, Address, Vec, BytesN, token, Symbol };
+use soroban_sdk::{contract, contractimpl, contracttype, contracterror, Env, Address, Vec, BytesN, token };
 
 // -------------- VARIABLES -------------- // 
 
@@ -105,9 +105,6 @@ impl RecoveryWalletContract {
             recovery_end_time: 0,
         });
 
-        let topics = (Symbol::new(&e, "Init"), true);
-        e.events().publish(topics, true);
-
         Ok(())
     }
 
@@ -146,9 +143,6 @@ impl RecoveryWalletContract {
             recovery_end_time: recovery_end_time,
         });
 
-        let topics = (Symbol::new(&e, "Recovery"), recovery_end_time);
-        e.events().publish(topics, recovery_end_time);
-        
         Ok(())
     }
 
@@ -185,9 +179,6 @@ impl RecoveryWalletContract {
         recovery.signature_count += 1;
 
         e.storage().instance().set(&DataKey::Recovery, &recovery);
-
-        let topics = (Symbol::new(&e, "Signed"), recovery.signature_count);
-        e.events().publish(topics, recovery.signature_count);
     
         Ok(())
     }
@@ -210,9 +201,6 @@ impl RecoveryWalletContract {
         let balance = e.storage().instance().get(&DataKey::Balance).unwrap_or(0);
 
         e.storage().instance().set(&DataKey::Balance, &(balance + amount));
-
-        let topics = (Symbol::new(&e, "Deposit"), amount, balance);
-        e.events().publish(topics, (amount, balance));
         
         Ok(())
     }
@@ -229,7 +217,7 @@ impl RecoveryWalletContract {
 
         let owner: Address = e.storage().instance().get(&DataKey::OwnerAddress).unwrap();
 
-        owner.require_auth();
+            owner.require_auth();
 
         let balance = e.storage().instance().get(&DataKey::Balance).unwrap_or(0);
 
@@ -244,9 +232,6 @@ impl RecoveryWalletContract {
         );
 
         e.storage().instance().set(&DataKey::Balance,  &(balance - amount)); 
-
-        let topics = (Symbol::new(&e, "Withdrawal"), amount, balance);
-        e.events().publish(topics, (amount, balance));
 
         Ok(())
     }

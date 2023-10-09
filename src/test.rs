@@ -1,16 +1,10 @@
 #![cfg(test)]
 
-use soroban_sdk::testutils::Ledger;
 pub(crate) use super::*;
-use token::Client as TokenClient;
 extern crate std;
 use crate::token;
-use token::StellarAssetClient  as StellarAssetClient;
-use soroban_sdk::{
-    testutils::Address as _,
-    Address, Env, vec
-};
-
+use token::{StellarAssetClient  as StellarAssetClient, Client as TokenClient};
+use soroban_sdk::{ testutils::Address as _, testutils::Ledger, Address, Env, vec};
 
 use crate::{RecoveryWalletContract, RecoveryWalletContractClient };
 
@@ -18,12 +12,10 @@ struct RecoveryWalletTest<'a> {
     e: Env,
     owner_address: Address,
     recovery_addresses: Vec<Address>,
-    recovery_threshold: u32,
     recovery_time_seconds: u64,
     new_owner: Address,
     token: TokenClient<'a>,
     contract: RecoveryWalletContractClient<'a>,
-    token_admin_client: StellarAssetClient<'a>
 }
 
 impl<'a> RecoveryWalletTest<'a> {
@@ -67,11 +59,9 @@ impl<'a> RecoveryWalletTest<'a> {
             owner_address, 
             recovery_addresses,
             recovery_time_seconds,
-            recovery_threshold,
             new_owner,
             token,
             contract,
-            token_admin_client
         }
     }
 }
