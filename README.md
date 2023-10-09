@@ -18,10 +18,13 @@ RecoveryWalletContract: The primary contract.
 The contract relies on the soroban_sdk for many of its functionalities.
 Recovery processes are completed after a certain threshold of recovery addresses sign off on them.
 The contract ensures safety by throwing errors when invalid operations are attempted, such as reusing an address for recovery, signing a recovery process twice, or withdrawing more funds than available.
-Events are published for significant operations like initialisation, recovery initiation, and signing.
 
 ## Deploy to Futurenet
 
 ```soroban contract build```
 
 Follow the steps here `https://soroban.stellar.org/docs/getting-started/deploy-to-testnet`
+
+```
+ soroban contract deploy   --wasm target/wasm32-unknown-unknown/release/recovery_wallet.wasm   --source <configured-identity-alias>   --network testnet
+```
